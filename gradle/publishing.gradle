@@ -10,7 +10,7 @@ publishing {
     publications {
         dist(MavenPublication) {
             groupId project.group
-            artifactId "inbeacon-android-beacon-library"
+            artifactId project.name
             version project.version
             artifact "${project.buildDir}/outputs/aar/${project.name}-release.aar"
             artifact androidJavadocsJar {
