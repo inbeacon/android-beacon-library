@@ -2,7 +2,7 @@
 
 apply plugin: 'com.jfrog.bintray'
 
-def attr = { String name -> project."$name" }
+def attr = { String name -> "inbeacon-android-beacon-library" }
 
 bintray {
     user = bintrayUsername
