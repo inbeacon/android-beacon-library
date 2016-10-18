@@ -40,7 +40,7 @@ apply from: 'gradle/eclipse.gradle'
 
 allprojects {
     version = "${getVersionName()}${isSnapshot == true ? "-SNAPSHOT" : ""}"
-    group = "org.altbeacon"
+    group = "com.inbeacon"
 
     repositories {
         jcenter()
