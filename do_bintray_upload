@@ -1,0 +1,15 @@
+git checkout inbeacon-version
+
+LASTTAG=`git describe --abbrev=0 --tags`
+NEWTAG=`newversion -x $LASTTAG`
+echo "Pushing $NEWTAG to bintray"
+echo "V$NEWTAG" >version.ver
+git add --all .
+git commit -a -m "Release $NEWTAG"
+git push origin inbeacon-version
+git tag $NEWTAG
+git push --tags
+
+./gradlew release -Prelease
+
+./gradlew bintrayUpload -Prelease
