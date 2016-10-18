@@ -2,7 +2,8 @@ git checkout inbeacon-version
 
 LASTTAG=`git describe --abbrev=0 --tags`
 NEWTAG=`newversion -x $LASTTAG`
-echo "Pushing $NEWTAG to bintray"
+echo "Pushing $NEWTAG to bintray ?"
+read
 echo "V$NEWTAG" >version.ver
 git add --all .
 git commit -a -m "Release $NEWTAG"
