@@ -27,9 +27,9 @@ bintray {
                 passphrase = attr 'signingPassword'
             }
             mavenCentralSync {
-                sync = true
-                user = attr 'sonatypeUserName'
-                password = attr 'sonatypePassword'
+                sync = false
+                //user = attr 'sonatypeUserName'
+                //password = attr 'sonatypePassword'
             }
         }
     }
