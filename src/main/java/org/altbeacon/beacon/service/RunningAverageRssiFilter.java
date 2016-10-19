@@ -26,6 +26,7 @@ public class RunningAverageRssiFilter implements RssiFilter {
         measurement.rssi = rssi;
         measurement.timestamp = SystemClock.elapsedRealtime();
         mMeasurements.add(measurement);
+        LogManager.w(TAG, "Adding rssi: %d to runningaverage (size=%d)", rssi, mMeasurements.size() );
     }
 
     @Override
@@ -40,8 +41,8 @@ public class RunningAverageRssiFilter implements RssiFilter {
         int startIndex = 0;
         int endIndex = size -1;
         if (size > 2) {
-            startIndex = size/10+1;
-            endIndex = size-size/10-2;
+            startIndex = size/10+1;     // ignore bottom 10%
+            endIndex = size-size/10-2;  // ignore top 10%
         }
 
         double sum = 0;
@@ -50,8 +51,7 @@ public class RunningAverageRssiFilter implements RssiFilter {
         }
         double runningAverage = sum/(endIndex-startIndex+1);
 
-        LogManager.d(TAG, "Running average mRssi based on %s measurements: %s",
-                size, runningAverage);
+        //LogManager.w(TAG, "Running average mRssi based on %s measurements: %s",size, runningAverage);
         return runningAverage;
     }
 

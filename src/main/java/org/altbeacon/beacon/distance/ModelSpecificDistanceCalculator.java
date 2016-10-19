@@ -128,13 +128,13 @@ public class ModelSpecificDistanceCalculator implements DistanceCalculator {
         }
         if (bestMatchingModel != null) {
             LogManager.d(TAG, "found a match with score %s", highestScore);
-            LogManager.d(TAG, "Finding best distance calculator for %s, %s, %s, %s",
+            LogManager.i(TAG, "Found best distance calculator for %s, %s, %s, %s",
                     bestMatchingModel.getVersion(), bestMatchingModel.getBuildNumber(),
                     bestMatchingModel.getModel(), bestMatchingModel.getManufacturer());
             mModel = bestMatchingModel;
         } else {
             mModel = mDefaultModel;
-            LogManager.w(TAG, "Cannot find match for this device.  Using default");
+            LogManager.w(TAG, "Cannot find match for this device (%s,%s,%s,%s).  Using default",model.getVersion(), model.getBuildNumber(), model.getModel(), model.getManufacturer());
         }
         return mModelMap.get(mModel);
     }
@@ -238,8 +238,8 @@ public class ModelSpecificDistanceCalculator implements DistanceCalculator {
                             + "due to HTTP status code %s", mRemoteUpdateUrlString, code);
                 }
                 else {
-                    LogManager.d(TAG,
-                            "Successfully downloaded distance models from online database");
+                    LogManager.i(TAG,
+                            "Successfully downloaded distance models from online database %s",mRemoteUpdateUrlString);
                     try {
                         buildModelMapWithLock(body);
                         if (saveJson(body)) {

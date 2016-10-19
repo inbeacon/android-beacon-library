@@ -217,6 +217,7 @@ public class Beacon implements Parcelable {
             mIdentifiers.add(Identifier.parse(in.readString()));
         }
         mDistance = in.readDouble();
+        mRunningAverageRssi = in.readDouble();
         mRssi = in.readInt();
         mTxPower = in.readInt();
         mBluetoothAddress = in.readString();
@@ -402,6 +403,7 @@ public class Beacon implements Parcelable {
             else {
                 LogManager.d(TAG, "Not using running average RSSI because it is null");
             }
+            LogManager.i(TAG,"calculating distance to "+this.toString());
             mDistance = calculateDistance(mTxPower, bestRssiAvailable);
         }
         return mDistance;
@@ -412,6 +414,13 @@ public class Beacon implements Parcelable {
      */
     public int getRssi() {
         return mRssi;
+    }
+    /**
+     * @see #mRssi
+     * @return mRssi
+     */
+    public double getRunningAverageRssi() {
+        return mRunningAverageRssi!=null ? mRunningAverageRssi : (double) mRssi;
     }
     /**
      * @see #mTxPower
@@ -519,6 +528,7 @@ public class Beacon implements Parcelable {
         if (mParserIdentifier != null) {
             sb.append(" type "+mParserIdentifier);
         }
+        sb.append(" txPower:"+String.format("%d",mTxPower));
         return sb;
     }
 
@@ -540,6 +550,7 @@ public class Beacon implements Parcelable {
             out.writeString(identifier == null ? null : identifier.toString());
         }
         out.writeDouble(getDistance());
+        out.writeDouble(mRunningAverageRssi==null? (double)mRssi : mRunningAverageRssi);
         out.writeInt(mRssi);
         out.writeInt(mTxPower);
         out.writeString(mBluetoothAddress);

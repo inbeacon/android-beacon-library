@@ -50,16 +50,29 @@ public class CurveFittedDistanceCalculator implements DistanceCalculator {
 
         LogManager.d(TAG, "calculating distance based on mRssi of %s and txPower of %s", rssi, txPower);
 
-
+        // converted tx power is where THIS DEVICE sees the beacon at 1m
+        double convertedTxPower = txPower * Math.pow( (1-mCoefficient3)/mCoefficient1, 1/mCoefficient2);
+        double convertedRatio = rssi/convertedTxPower;
         double ratio = rssi*1.0/txPower;
-        double distance;
-        if (ratio < 1.0) {
-            distance =  Math.pow(ratio,10);
+        double distance=0;
+
+        if (convertedRatio < 1.0) {  // below 1 meter we make sure it goes fast to 0
+            distance =  Math.pow(convertedRatio,8);
         }
         else {
             distance =  (mCoefficient1)*Math.pow(ratio,mCoefficient2) + mCoefficient3;
         }
-        LogManager.d(TAG, "avg mRssi: %s distance: %s", rssi, distance);
+        LogManager.i(TAG, "avgRssi: %s txPower: %s C1/C2/C3: %s/%s/%s => (convTxPower:%s) ratio:%s (convRatio:%s) => distance: %s",
+                String.format("%.2f",rssi),
+                String.format("%d",txPower),
+                String.format("%.3f",mCoefficient1),
+                String.format("%.3f",mCoefficient2),
+                String.format("%.3f",mCoefficient3),
+                String.format("%.2f",convertedTxPower),
+                String.format("%.3f",ratio),
+                String.format("%.3f",convertedRatio),
+                String.format("%.2f",distance)
+        );
         return distance;
     }
 }
