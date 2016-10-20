@@ -109,7 +109,7 @@ public class ModelSpecificDistanceCalculator implements DistanceCalculator {
     }
 
     private DistanceCalculator findCalculatorForModel(AndroidModel model) {
-        LogManager.d(TAG, "Finding best distance calculator for %s, %s, %s, %s",
+        LogManager.w(TAG, "Finding best distance calculator for %s, %s, %s, %s",
                 model.getVersion(), model.getBuildNumber(), model.getModel(),
                 model.getManufacturer());
 
@@ -128,7 +128,7 @@ public class ModelSpecificDistanceCalculator implements DistanceCalculator {
         }
         if (bestMatchingModel != null) {
             LogManager.d(TAG, "found a match with score %s", highestScore);
-            LogManager.i(TAG, "Found best distance calculator for %s, %s, %s, %s",
+            LogManager.w(TAG, "Found best distance calculator: %s, %s, %s, %s",
                     bestMatchingModel.getVersion(), bestMatchingModel.getBuildNumber(),
                     bestMatchingModel.getModel(), bestMatchingModel.getManufacturer());
             mModel = bestMatchingModel;
