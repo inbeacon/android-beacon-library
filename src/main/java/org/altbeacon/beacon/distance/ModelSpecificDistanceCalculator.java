@@ -127,16 +127,15 @@ public class ModelSpecificDistanceCalculator implements DistanceCalculator {
             }
         }
         if (bestMatchingModel != null) {
-            LogManager.d(TAG, "found a match with score %s", highestScore);
-            LogManager.w(TAG, "Found best distance calculator: %s, %s, %s, %s",
-                    bestMatchingModel.getVersion(), bestMatchingModel.getBuildNumber(),
-                    bestMatchingModel.getModel(), bestMatchingModel.getManufacturer());
+            LogManager.i(TAG, "Found best distance calculator: %s with score %s", bestMatchingModel, highestScore);
             mModel = bestMatchingModel;
         } else {
             mModel = mDefaultModel;
             LogManager.w(TAG, "Cannot find match for this device (%s,%s,%s,%s).  Using default",model.getVersion(), model.getBuildNumber(), model.getModel(), model.getManufacturer());
         }
-        return mModelMap.get(mModel);
+        DistanceCalculator dc = mModelMap.get(mModel);
+        LogManager.w(TAG, "Using distance model: %s with distance calculator %s",  mModel, dc);
+        return dc;
     }
 
     private void loadModelMap() {
