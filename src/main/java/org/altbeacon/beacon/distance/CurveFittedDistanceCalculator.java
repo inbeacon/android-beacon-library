@@ -78,6 +78,6 @@ public class CurveFittedDistanceCalculator implements DistanceCalculator {
 
     @Override
     public String toString() {
-        return String.format("%s with C1/C2/C3: %.3f/%.3f/%.3f", TAG, mCoefficient1, mCoefficient2, mCoefficient3),
+        return String.format("%s with C1/C2/C3: %.3f/%.3f/%.3f", TAG, mCoefficient1, mCoefficient2, mCoefficient3);
     }
 }
