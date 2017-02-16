@@ -199,8 +199,13 @@ public class MonitoringStatus {
     }
 
     protected void updateMonitoringStatusTime(long time) {
-        File file = mContext.getFileStreamPath(STATUS_PRESERVATION_FILE_NAME);
-        file.setLastModified(time);
+        try {
+            File file = mContext.getFileStreamPath(STATUS_PRESERVATION_FILE_NAME);
+            file.setLastModified(time);
+        }
+        catch(Exception e) {
+            LogManager.e(TAG, " updateMonitoringStatusTime error: %s ", e.getMessage());
+        }
     }
 
     protected long getLastMonitoringStatusUpdateTime() {
