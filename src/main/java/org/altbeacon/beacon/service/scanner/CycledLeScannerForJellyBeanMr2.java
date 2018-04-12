@@ -5,6 +5,8 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.Context;
 import android.os.SystemClock;
+import android.support.annotation.MainThread;
+import android.support.annotation.WorkerThread;
 
 import org.altbeacon.beacon.logging.LogManager;
 import org.altbeacon.bluetooth.BluetoothCrashResolver;
@@ -36,6 +38,7 @@ public class CycledLeScannerForJellyBeanMr2 extends CycledLeScanner {
                 setWakeUpAlarm();
             }
             mHandler.postDelayed(new Runnable() {
+                @MainThread
                 @Override
                 public void run() {
                     scanLeDevice(true);
@@ -65,6 +68,7 @@ public class CycledLeScannerForJellyBeanMr2 extends CycledLeScanner {
         final BluetoothAdapter.LeScanCallback leScanCallback = getLeScanCallback();
         mScanHandler.removeCallbacksAndMessages(null);
         mScanHandler.post(new Runnable() {
+            @WorkerThread
             @Override
             public void run() {
                 try {
@@ -85,6 +89,7 @@ public class CycledLeScannerForJellyBeanMr2 extends CycledLeScanner {
         final BluetoothAdapter.LeScanCallback leScanCallback = getLeScanCallback();
         mScanHandler.removeCallbacksAndMessages(null);
         mScanHandler.post(new Runnable() {
+            @WorkerThread
             @Override
             public void run() {
                 try {
@@ -107,7 +112,9 @@ public class CycledLeScannerForJellyBeanMr2 extends CycledLeScanner {
                                              final byte[] scanRecord) {
                             LogManager.d(TAG, "got record");
                             mCycledLeScanCallback.onLeScan(device, rssi, scanRecord);
-                            mBluetoothCrashResolver.notifyScannedDevice(device, getLeScanCallback());
+                            if (mBluetoothCrashResolver != null) {
+                                mBluetoothCrashResolver.notifyScannedDevice(device, getLeScanCallback());
+                            }
                         }
                     };
         }

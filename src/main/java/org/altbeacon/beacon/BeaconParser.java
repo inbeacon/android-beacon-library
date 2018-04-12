@@ -9,6 +9,7 @@ import org.altbeacon.beacon.logging.LogManager;
 import org.altbeacon.bluetooth.BleAdvertisement;
 import org.altbeacon.bluetooth.Pdu;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -36,7 +37,7 @@ import java.util.regex.Pattern;
  * </p>
  *
  */
-public class BeaconParser {
+public class BeaconParser implements Serializable {
     private static final String TAG = "BeaconParser";
     public static final String ALTBEACON_LAYOUT = "m:2-3=beac,i:4-19,i:20-21,i:22-23,p:24-24,d:25-25";
     public static final String EDDYSTONE_TLM_LAYOUT = "x,s:0-1=feaa,m:2-2=20,d:3-3,d:4-5,d:6-7,d:8-11,d:12-15";
@@ -53,6 +54,7 @@ public class BeaconParser {
     private static final String LITTLE_ENDIAN_SUFFIX = "l";
     private static final String VARIABLE_LENGTH_SUFFIX = "v";
 
+    protected String mBeaconLayout;
     private Long mMatchingBeaconTypeCode;
     protected final List<Integer> mIdentifierStartOffsets = new ArrayList<Integer>();
     protected final List<Integer> mIdentifierEndOffsets = new ArrayList<Integer>();
@@ -165,7 +167,7 @@ public class BeaconParser {
      * @return the BeaconParser instance
      */
     public BeaconParser setBeaconLayout(String beaconLayout) {
-
+        mBeaconLayout = beaconLayout;
         Log.d(TAG, "Parsing beacon layout: "+beaconLayout);
 
         String[] terms =  beaconLayout.split(",");
@@ -412,12 +414,10 @@ public class BeaconParser {
      * @param device The Bluetooth device that was detected
      * @return An instance of a <code>Beacon</code>
      */
-    @TargetApi(5)
     public Beacon fromScanData(byte[] scanData, int rssi, BluetoothDevice device) {
         return fromScanData(scanData, rssi, device, new Beacon());
     }
 
-    @TargetApi(5)
     protected Beacon fromScanData(byte[] bytesToProcess, int rssi, BluetoothDevice device, Beacon beacon) {
         BleAdvertisement advert = new BleAdvertisement(bytesToProcess);
         boolean parseFailed = false;
@@ -457,12 +457,12 @@ public class BeaconParser {
             boolean patternFound = false;
 
             if (getServiceUuid() == null) {
-                if (byteArraysMatch(bytesToProcess, startByte + mMatchingBeaconTypeCodeStartOffset, typeCodeBytes, 0)) {
+                if (byteArraysMatch(bytesToProcess, startByte + mMatchingBeaconTypeCodeStartOffset, typeCodeBytes)) {
                     patternFound = true;
                 }
             } else {
-                if (byteArraysMatch(bytesToProcess, startByte + mServiceUuidStartOffset, serviceUuidBytes, 0) &&
-                        byteArraysMatch(bytesToProcess, startByte + mMatchingBeaconTypeCodeStartOffset, typeCodeBytes, 0)) {
+                if (byteArraysMatch(bytesToProcess, startByte + mServiceUuidStartOffset, serviceUuidBytes) &&
+                        byteArraysMatch(bytesToProcess, startByte + mMatchingBeaconTypeCodeStartOffset, typeCodeBytes)) {
                     patternFound = true;
                 }
             }
@@ -759,6 +759,13 @@ public class BeaconParser {
     }
 
     /**
+     * @return the layout string for the parser
+     */
+    public String getLayout() {
+        return mBeaconLayout;
+    }
+
+    /**
      * @return the correction value in dBm to apply to the calibrated txPower to get a 1m calibrated value.
      * Some formats like Eddystone use a 0m calibrated value, which requires this correction
      */
@@ -821,18 +828,19 @@ public class BeaconParser {
         return lastEndOffset+1;
     }
 
-    private boolean byteArraysMatch(byte[] array1, int offset1, byte[] array2, int offset2) {
-        int minSize = array1.length > array2.length ? array2.length : array1.length;
-        if (offset1+minSize > array1.length || offset2+minSize > array2.length) {
+    private boolean byteArraysMatch(byte[] source, int offset, byte[] expected) {
+        int length = expected.length;
+        if (source.length - offset < length) {
             return false;
         }
-        for (int i = 0; i <  minSize; i++) {
-            if (array1[i+offset1] != array2[i+offset2]) {
+        for (int i = 0; i <  length; i++) {
+            if (source[offset + i] != expected[i]) {
                 return false;
             }
         }
         return true;
     }
+
     private String byteArrayToString(byte[] bytes) {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < bytes.length; i++) {
@@ -925,4 +933,20 @@ public class BeaconParser {
             }
         );
     }
+
+    @Override
+    public boolean equals(Object o) {
+        BeaconParser that = null;
+        try {
+            that = (BeaconParser) o;
+            if (that.mBeaconLayout != null && that.mBeaconLayout.equals(this.mBeaconLayout)) {
+                if (that.mIdentifier != null && that.mIdentifier.equals(this.mIdentifier)) {
+                    return true;
+                }
+            }
+        }
+        catch (ClassCastException e ) { }
+        return false;
+    }
+
 }

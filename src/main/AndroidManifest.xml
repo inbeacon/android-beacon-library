@@ -5,7 +5,7 @@
     <uses-permission android:name="android.permission.BLUETOOTH" android:required="false"/>
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:required="false"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
-    <uses-permission-sdk-23 android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
 
     <application>
         <receiver android:name="org.altbeacon.beacon.startup.StartupBroadcastReceiver">
@@ -27,6 +27,17 @@
             android:enabled="true"
             android:exported="false"
             />
+
+        <service android:name=".service.ScanJob"
+                android:permission="android.permission.BIND_JOB_SERVICE">
+            <meta-data android:name="immediateScanJobId" android:value="208352939" />
+            <meta-data android:name="periodicScanJobId" android:value="208352940" />
+        </service>
+  
+        <service android:name="org.altbeacon.bluetooth.BluetoothTestJob"
+            android:permission="android.permission.BIND_JOB_SERVICE" >
+            <meta-data android:name="jobId" android:value="1799803768"/>
+        </service>
 
     </application>
 

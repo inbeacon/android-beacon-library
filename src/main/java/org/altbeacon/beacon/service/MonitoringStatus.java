@@ -3,6 +3,7 @@ package org.altbeacon.beacon.service;
 import android.content.Context;
 
 import org.altbeacon.beacon.Beacon;
+import org.altbeacon.beacon.MonitorNotifier;
 import org.altbeacon.beacon.Region;
 import org.altbeacon.beacon.logging.LogManager;
 
@@ -19,11 +20,12 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static android.content.Context.MODE_PRIVATE;
 
 public class MonitoringStatus {
-    private static MonitoringStatus sInstance;
+    private static volatile MonitoringStatus sInstance;
     private static final int MAX_REGIONS_FOR_STATUS_PRESERVATION = 50;
     private static final int MAX_STATUS_PRESERVATION_FILE_AGE_TO_RESTORE_SECS = 60 * 15;
     private static final String TAG = MonitoringStatus.class.getSimpleName();
@@ -35,15 +37,35 @@ public class MonitoringStatus {
 
     private boolean mStatePreservationIsOn = true;
 
+    /**
+     * Private lock object for singleton initialization protecting against denial-of-service attack.
+     */
+    private static final Object SINGLETON_LOCK = new Object();
+
     public static MonitoringStatus getInstanceForApplication(Context context) {
-        if (sInstance == null) {
-            synchronized (MonitoringStatus.class) {
-                if (sInstance == null) {
-                    sInstance = new MonitoringStatus(context.getApplicationContext());
+        /*
+         * Follow double check pattern from Effective Java v2 Item 71.
+         *
+         * Bloch recommends using the local variable for this for performance reasons:
+         *
+         * > What this variable does is ensure that `field` is read only once in the common case
+         * > where it's already initialized. While not strictly necessary, this may improve
+         * > performance and is more elegant by the standards applied to low-level concurrent
+         * > programming. On my machine, [this] is about 25 percent faster than the obvious
+         * > version without a local variable.
+         *
+         * Joshua Bloch. Effective Java, Second Edition. Addison-Wesley, 2008. pages 283-284
+         */
+        MonitoringStatus instance = sInstance;
+        if (instance == null) {
+            synchronized (SINGLETON_LOCK) {
+                instance = sInstance;
+                if (instance == null) {
+                    sInstance = instance = new MonitoringStatus(context.getApplicationContext());
                 }
             }
         }
-        return sInstance;
+        return instance;
     }
 
     public MonitoringStatus(Context context) {
@@ -51,31 +73,12 @@ public class MonitoringStatus {
     }
 
     public synchronized void addRegion(Region region, Callback callback) {
-        if (getRegionsStateMap().containsKey(region)) {
-            // if the region definition hasn't changed, becasue if it has, we need to clear state
-            // otherwise a region with the same uniqueId can never be changed
-            for (Region existingRegion : getRegionsStateMap().keySet()) {
-                if (existingRegion.equals(region)) {
-                    if (existingRegion.hasSameIdentifiers(region)) {
-                        return;
-                    }
-                    else {
-                        LogManager.d(TAG, "Replacing region with unique identifier "+region.getUniqueId());
-                        LogManager.d(TAG, "Old definition: "+existingRegion);
-                        LogManager.d(TAG, "New definition: "+region);
-                        LogManager.d(TAG, "clearing state");
-                        getRegionsStateMap().remove(region);
-                        break;
-                    }
-                }
-            }
-        }
-        getRegionsStateMap().put(region, new RegionMonitoringState(callback));
+        addLocalRegion(region, callback);
         saveMonitoringStatusIfOn();
     }
 
     public synchronized void removeRegion(Region region) {
-        getRegionsStateMap().remove(region);
+        removeLocalRegion(region);
         saveMonitoringStatusIfOn();
     }
 
@@ -100,7 +103,7 @@ public class MonitoringStatus {
             if (state.markOutsideIfExpired()) {
                 needsMonitoringStateSaving = true;
                 LogManager.d(TAG, "found a monitor that expired: %s", region);
-                state.getCallback().call(mContext, "monitoringData", new MonitoringData(state.getInside(), region));
+                state.getCallback().call(mContext, "monitoringData", new MonitoringData(state.getInside(), region).toBundle());
             }
         }
         if (needsMonitoringStateSaving) {
@@ -119,7 +122,7 @@ public class MonitoringStatus {
             if (state != null && state.markInside()) {
                 needsMonitoringStateSaving = true;
                 state.getCallback().call(mContext, "monitoringData",
-                        new MonitoringData(state.getInside(), region));
+                        new MonitoringData(state.getInside(), region).toBundle());
             }
         }
         if (needsMonitoringStateSaving) {
@@ -139,7 +142,7 @@ public class MonitoringStatus {
 
     private void restoreOrInitializeMonitoringStatus() {
         long millisSinceLastMonitor = System.currentTimeMillis() - getLastMonitoringStatusUpdateTime();
-        mRegionsStatesMap = new HashMap<Region, RegionMonitoringState>();
+        mRegionsStatesMap = new ConcurrentHashMap<Region, RegionMonitoringState>();
         if (!mStatePreservationIsOn) {
             LogManager.d(TAG, "Not restoring monitoring state because persistence is disabled");
         }
@@ -177,10 +180,17 @@ public class MonitoringStatus {
             try {
                 outputStream = mContext.openFileOutput(STATUS_PRESERVATION_FILE_NAME, MODE_PRIVATE);
                 objectOutputStream = new ObjectOutputStream(outputStream);
-                objectOutputStream.writeObject(getRegionsStateMap());
-
+                Map<Region,RegionMonitoringState> map = getRegionsStateMap();
+                // Must convert ConcurrentHashMap to HashMap becasue attempting to serialize
+                // ConcurrentHashMap throws a java.io.NotSerializableException
+                HashMap<Region,RegionMonitoringState> serializableMap = new HashMap<Region,RegionMonitoringState>();
+                for (Region region : map.keySet()) {
+                    serializableMap.put(region, map.get(region));
+                }
+                objectOutputStream.writeObject(serializableMap);
             } catch (IOException e) {
-                LogManager.e(TAG, "Error while saving monitored region states to file. %s ", e.getMessage());
+                LogManager.e(TAG, "Error while saving monitored region states to file ", e);
+                e.printStackTrace(System.err);
             } finally {
                 if (null != outputStream) {
                     try {
@@ -276,8 +286,61 @@ public class MonitoringStatus {
         }
     }
 
+    public boolean isStatePreservationOn() {
+        return mStatePreservationIsOn;
+    }
+
     public synchronized void clear() {
         mContext.deleteFile(STATUS_PRESERVATION_FILE_NAME);
         getRegionsStateMap().clear();
+    }
+
+    public void updateLocalState(Region region, Integer state) {
+        RegionMonitoringState internalState = getRegionsStateMap().get(region);
+        if (internalState == null) {
+            internalState = addLocalRegion(region);
+        }
+        if (state != null) {
+            if (state == MonitorNotifier.OUTSIDE) {
+                internalState.markOutside();
+
+            }
+            if (state == MonitorNotifier.INSIDE) {
+                internalState.markInside();
+            }
+        }
+    }
+
+    public void removeLocalRegion(Region region) {
+        getRegionsStateMap().remove(region);
+    }
+    public RegionMonitoringState addLocalRegion(Region region){
+        Callback dummyCallback = new Callback(null);
+        return addLocalRegion(region, dummyCallback);
+    }
+
+    private RegionMonitoringState addLocalRegion(Region region, Callback callback){
+        if (getRegionsStateMap().containsKey(region)) {
+            // if the region definition hasn't changed, becasue if it has, we need to clear state
+            // otherwise a region with the same uniqueId can never be changed
+            for (Region existingRegion : getRegionsStateMap().keySet()) {
+                if (existingRegion.equals(region)) {
+                    if (existingRegion.hasSameIdentifiers(region)) {
+                        return getRegionsStateMap().get(existingRegion);
+                    }
+                    else {
+                        LogManager.d(TAG, "Replacing region with unique identifier "+region.getUniqueId());
+                        LogManager.d(TAG, "Old definition: "+existingRegion);
+                        LogManager.d(TAG, "New definition: "+region);
+                        LogManager.d(TAG, "clearing state");
+                        getRegionsStateMap().remove(region);
+                        break;
+                    }
+                }
+            }
+        }
+        RegionMonitoringState monitoringState = new RegionMonitoringState(callback);
+        getRegionsStateMap().put(region, monitoringState);
+        return monitoringState;
     }
 }

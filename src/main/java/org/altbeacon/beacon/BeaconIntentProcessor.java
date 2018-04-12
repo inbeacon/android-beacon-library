@@ -23,20 +23,32 @@
  */
 package org.altbeacon.beacon;
 
-import android.annotation.TargetApi;
 import android.app.IntentService;
 import android.content.Intent;
 
 import org.altbeacon.beacon.logging.LogManager;
 import org.altbeacon.beacon.service.MonitoringData;
+import org.altbeacon.beacon.service.MonitoringStatus;
 import org.altbeacon.beacon.service.RangingData;
 
 import java.util.Set;
 
 /**
  * Converts internal intents to notifier callbacks
+ *
+ * This is used with the BeaconService and supports scanning in a separate process.
+ * It is not used with the ScanJob, as an IntentService will not be able to be started in some cases
+ * where the app is in the background on Android O.
+ *
+ * @see BeaconLocalBroadcastProcessor for the equivalent use with ScanJob.
+ *
+ * This IntentService may be running in a different process from the BeaconService, which justifies
+ * its continued existence for multi-process service cases.
+ *
+ * Internal library class.  Do not use directly from outside the library
+ *
+ * @hide
  */
-@TargetApi(3)
 public class BeaconIntentProcessor extends IntentService {
     private static final String TAG = "BeaconIntentProcessor";
 
@@ -46,51 +58,6 @@ public class BeaconIntentProcessor extends IntentService {
 
     @Override
     protected void onHandleIntent(Intent intent) {
-        LogManager.d(TAG, "got an intent to process");
-
-        MonitoringData monitoringData = null;
-        RangingData rangingData = null;
-
-        if (intent != null && intent.getExtras() != null) {
-            monitoringData = (MonitoringData) intent.getExtras().get("monitoringData");
-            rangingData = (RangingData) intent.getExtras().get("rangingData");
-        }
-
-        if (rangingData != null) {
-            LogManager.d(TAG, "got ranging data");
-            if (rangingData.getBeacons() == null) {
-                LogManager.w(TAG, "Ranging data has a null beacons collection");
-            }
-            Set<RangeNotifier> notifiers = BeaconManager.getInstanceForApplication(this).getRangingNotifiers();
-            java.util.Collection<Beacon> beacons = rangingData.getBeacons();
-            if (notifiers != null) {
-                for(RangeNotifier notifier : notifiers){
-                    notifier.didRangeBeaconsInRegion(beacons, rangingData.getRegion());
-                }
-            }
-            else {
-                LogManager.d(TAG, "but ranging notifier is null, so we're dropping it.");
-            }
-            RangeNotifier dataNotifier = BeaconManager.getInstanceForApplication(this).getDataRequestNotifier();
-            if (dataNotifier != null) {
-                dataNotifier.didRangeBeaconsInRegion(beacons, rangingData.getRegion());
-            }
-        }
-
-        if (monitoringData != null) {
-            LogManager.d(TAG, "got monitoring data");
-            Set<MonitorNotifier> notifiers = BeaconManager.getInstanceForApplication(this).getMonitoringNotifiers();
-            if (notifiers != null) {
-                for(MonitorNotifier notifier : notifiers) {
-                    LogManager.d(TAG, "Calling monitoring notifier: %s", notifier);
-                    notifier.didDetermineStateForRegion(monitoringData.isInside() ? MonitorNotifier.INSIDE : MonitorNotifier.OUTSIDE, monitoringData.getRegion());
-                    if (monitoringData.isInside()) {
-                        notifier.didEnterRegion(monitoringData.getRegion());
-                    } else {
-                        notifier.didExitRegion(monitoringData.getRegion());
-                    }
-                }
-            }
-        }
+        new IntentHandler().convertIntentsToCallbacks(this.getApplicationContext(), intent);
     }
 }

@@ -26,16 +26,17 @@ package org.altbeacon.beacon.service;
 import org.altbeacon.beacon.Beacon;
 import org.altbeacon.beacon.logging.LogManager;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
-public class RangeState {
+public class RangeState implements Serializable {
     private static final String TAG = "RangeState";
-    private final Callback mCallback;
+    private Callback mCallback;
     private Map<Beacon,RangedBeacon> mRangedBeacons = new HashMap<Beacon,RangedBeacon>();
-    private static boolean UseTrackingCache = false;
+    private static boolean sUseTrackingCache = false;
 
     public RangeState(Callback c) {
         mCallback = c;
@@ -48,11 +49,15 @@ public class RangeState {
     public void addBeacon(Beacon beacon) {
         if (mRangedBeacons.containsKey(beacon)) {
             RangedBeacon rangedBeacon = mRangedBeacons.get(beacon);
-            LogManager.d(TAG, "adding %s to existing range for: %s", beacon, rangedBeacon);
+            if (LogManager.isVerboseLoggingEnabled()) {
+                LogManager.d(TAG, "adding %s to existing range for: %s", beacon, rangedBeacon);
+            }
             rangedBeacon.updateBeacon(beacon);
         }
         else {
-            LogManager.d(TAG, "adding %s to new rangedBeacon", beacon);
+            if (LogManager.isVerboseLoggingEnabled()) {
+                LogManager.d(TAG, "adding %s to new rangedBeacon", beacon);
+            }
             mRangedBeacons.put(beacon, new RangedBeacon(beacon));
         }
     }
@@ -77,7 +82,7 @@ public class RangeState {
                 if (!rangedBeacon.noMeasurementsAvailable() == true) {
                     //if TrackingCache is enabled, allow beacon to not receive
                     //measurements for a certain amount of time
-                    if (!UseTrackingCache || rangedBeacon.isExpired())
+                    if (!sUseTrackingCache || rangedBeacon.isExpired())
                         rangedBeacon.setTracked(false);
                     newRangedBeacons.put(beacon, rangedBeacon);
                 }
@@ -92,8 +97,11 @@ public class RangeState {
     }
 
     public static void setUseTrackingCache(boolean useTrackingCache) {
-        RangeState.UseTrackingCache = useTrackingCache;
+        RangeState.sUseTrackingCache = useTrackingCache;
     }
 
+    public static boolean getUseTrackingCache() {
+        return sUseTrackingCache;
+    }
 
 }
